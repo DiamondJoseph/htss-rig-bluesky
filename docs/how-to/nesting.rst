@@ -14,23 +14,32 @@ for example:
 
     import bluesky.plan_stubs as bps
     import bluesky.plans as bp
+    import bluesky.preprocessors as bpp
 
     from htss.devices import AdAravisDetector, SampleStage
     from htss.plans.detector import Roi, set_roi
-
+    
+    def get_flats(
+        dets: list[Readable],
+        num: int
+    ) -> Generator:
+        for _ in count(num):
+            yield from bps.trigger_and_read(dets, name="flats")
 
     def basic_tomo(
         det: AdAravisDetector,
         sample: SampleStage,
         prepare_detector: Callable[[AdAravisDetector], Generator],
         beam_centre: float = 0.0,
+        flats: int = 5
     ) -> Generator:
         # Prepare detector
         yield from prepare_detector(det)
-
+        
+        yield from bps.open_run(md={"Number of flats": flats})
         # Move sample out of the way and take 5 flats
         yield from bps.mv(sample.x, -24.9)
-        yield from bp.count([det], num=5)
+        yield from get_flats([det], flats)
 
         # Move sample into beam and take projections
         yield from bps.mv(sample.x, beam_centre)
